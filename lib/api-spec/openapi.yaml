@@ -3,13 +3,17 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Sabah General Trading - Employee Attendance System
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: employees
+    description: Employee management
+  - name: attendance
+    description: Attendance records
 paths:
   /healthz:
     get:
@@ -24,6 +28,179 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /employees:
+    get:
+      operationId: listEmployees
+      tags: [employees]
+      summary: List all employees
+      responses:
+        "200":
+          description: List of employees
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Employee"
+    post:
+      operationId: createEmployee
+      tags: [employees]
+      summary: Create a new employee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeInput"
+      responses:
+        "201":
+          description: Created employee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Employee"
+
+  /employees/{id}:
+    patch:
+      operationId: updateEmployee
+      tags: [employees]
+      summary: Update an employee
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeUpdate"
+      responses:
+        "200":
+          description: Updated employee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Employee"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteEmployee
+      tags: [employees]
+      summary: Delete an employee
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /attendance:
+    get:
+      operationId: listAttendance
+      tags: [attendance]
+      summary: List attendance records
+      parameters:
+        - name: employeeId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of attendance records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AttendanceRecord"
+    post:
+      operationId: upsertAttendance
+      tags: [attendance]
+      summary: Upsert an attendance record for a specific day
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttendanceInput"
+      responses:
+        "200":
+          description: Upserted attendance record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceRecord"
+
+  /attendance/summary:
+    get:
+      operationId: getAttendanceSummary
+      tags: [attendance]
+      summary: Get monthly attendance summary per employee
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Monthly attendance summary
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmployeeSummary"
+
+  /attendance/monthly-stats:
+    get:
+      operationId: getMonthlyStats
+      tags: [attendance]
+      summary: Get overall monthly statistics (total present, absent across all employees)
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Monthly stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlyStats"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +211,120 @@ components:
       required:
         - status
 
+    Employee:
+      type: object
+      required: [id, name, dailyWage, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        dailyWage:
+          type: number
+        createdAt:
+          type: string
+
+    EmployeeInput:
+      type: object
+      required: [name, dailyWage]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+        dailyWage:
+          type: number
+          minimum: 0
+
+    EmployeeUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        phone:
+          type: ["string", "null"]
+        dailyWage:
+          type: number
+          minimum: 0
+
+    AttendanceRecord:
+      type: object
+      required: [id, employeeId, year, month, day, status]
+      properties:
+        id:
+          type: integer
+        employeeId:
+          type: integer
+        year:
+          type: integer
+        month:
+          type: integer
+        day:
+          type: integer
+        status:
+          type: string
+          enum: [present, absent, holiday, vacation]
+
+    AttendanceInput:
+      type: object
+      required: [employeeId, year, month, day, status]
+      properties:
+        employeeId:
+          type: integer
+        year:
+          type: integer
+        month:
+          type: integer
+        day:
+          type: integer
+        status:
+          type: string
+          enum: [present, absent, holiday, vacation]
+
+    EmployeeSummary:
+      type: object
+      required: [employeeId, employeeName, dailyWage, totalPresent, totalAbsent, totalHoliday, totalVacation, totalSalary]
+      properties:
+        employeeId:
+          type: integer
+        employeeName:
+          type: string
+        phone:
+          type: ["string", "null"]
+        dailyWage:
+          type: number
+        totalPresent:
+          type: integer
+        totalAbsent:
+          type: integer
+        totalHoliday:
+          type: integer
+        totalVacation:
+          type: integer
+        totalSalary:
+          type: number
+
+    MonthlyStats:
+      type: object
+      required: [year, month, totalEmployees, totalPresent, totalAbsent, totalHoliday, totalVacation, totalSalaryPaid]
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        totalEmployees:
+          type: integer
+        totalPresent:
+          type: integer
+        totalAbsent:
+          type: integer
+        totalHoliday:
+          type: integer
+        totalVacation:
+          type: integer
+        totalSalaryPaid:
+          type: number
