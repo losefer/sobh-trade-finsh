@@ -143,38 +143,38 @@ export default function Dashboard() {
 
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
-          <div className="glass-panel rounded-3xl p-6 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:opacity-30 group-hover:scale-110 transition-all duration-500">
-              <CheckCircle className="w-16 h-16 text-green-400" />
+          <div className="stat-card rounded-3xl p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
+              <p className="text-sm font-bold text-white/60 uppercase tracking-wider">الحاضرون</p>
             </div>
-            <p className="text-sm font-bold text-white/60 mb-2 uppercase tracking-wider relative z-10">الحاضرون</p>
-            <p className="text-4xl font-black text-green-400 relative z-10">{stats.totalPresent}</p>
+            <p className="text-5xl font-black text-green-400">{stats.totalPresent}</p>
           </div>
-          <div className="glass-panel rounded-3xl p-6 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:opacity-30 group-hover:scale-110 transition-all duration-500">
-              <XCircle className="w-16 h-16 text-red-400" />
+          <div className="stat-card rounded-3xl p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+              <p className="text-sm font-bold text-white/60 uppercase tracking-wider">الغائبون</p>
             </div>
-            <p className="text-sm font-bold text-white/60 mb-2 uppercase tracking-wider relative z-10">الغائبون</p>
-            <p className="text-4xl font-black text-red-400 relative z-10">{stats.totalAbsent}</p>
+            <p className="text-5xl font-black text-red-400">{stats.totalAbsent}</p>
           </div>
-          <div className="glass-panel rounded-3xl p-6 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:opacity-30 group-hover:scale-110 transition-all duration-500">
-              <TrendingUp className="w-16 h-16 text-primary" />
+          <div className="stat-card rounded-3xl p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <TrendingUp className="w-5 h-5 text-primary flex-shrink-0" />
+              <p className="text-sm font-bold text-white/60 uppercase tracking-wider">الإجازات</p>
             </div>
-            <p className="text-sm font-bold text-white/60 mb-2 uppercase tracking-wider relative z-10">الإجازات</p>
-            <p className="text-4xl font-black text-primary relative z-10">{stats.totalVacation}</p>
+            <p className="text-5xl font-black text-primary">{stats.totalVacation}</p>
           </div>
-          <div className="glass-panel rounded-3xl p-6 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:opacity-30 group-hover:scale-110 transition-all duration-500">
-              <Users className="w-16 h-16 text-white" />
+          <div className="stat-card rounded-3xl p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <Users className="w-5 h-5 text-white/70 flex-shrink-0" />
+              <p className="text-sm font-bold text-white/60 uppercase tracking-wider">إجمالي الكوادر</p>
             </div>
-            <p className="text-sm font-bold text-white/60 mb-2 uppercase tracking-wider relative z-10">إجمالي الكوادر</p>
-            <p className="text-4xl font-black text-white relative z-10">{stats.totalEmployees}</p>
+            <p className="text-5xl font-black text-white">{stats.totalEmployees}</p>
           </div>
         </div>
       )}
 
-      <div className="glass-panel rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden bg-card/60">
+      <div className="table-panel rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden">
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-sm text-right border-collapse">
             <thead>
