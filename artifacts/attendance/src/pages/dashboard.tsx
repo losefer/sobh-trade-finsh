@@ -5,8 +5,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, getDaysInMonth } from "date-fns";
 import { ar } from "date-fns/locale";
-import { Loader2, TrendingUp, Users, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, TrendingUp, Users, CheckCircle, XCircle, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 const STATUS_FLOW = [null, "present", "absent", "vacation"] as const;
 
@@ -26,6 +27,31 @@ export default function Dashboard() {
   const upsertAttendance = useUpsertAttendance();
   const mutateFnRef = useRef(upsertAttendance.mutate);
   mutateFnRef.current = upsertAttendance.mutate;
+  const { toast } = useToast();
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const url = `${base}/api/export/monthly?year=${year}&month=${month}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("فشل التصدير");
+      const blob = await res.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      const cd = res.headers.get("content-disposition") || "";
+      const match = cd.match(/filename\*=UTF-8''(.+)/);
+      link.download = match ? decodeURIComponent(match[1]) : `حضور_${year}_${month}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      toast({ title: "تم تصدير ملف Excel بنجاح", className: "bg-green-600 text-white border-none font-bold" });
+    } catch {
+      toast({ title: "حدث خطأ أثناء التصدير", variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const daysInMonth = getDaysInMonth(currentDate);
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -116,28 +142,40 @@ export default function Dashboard() {
           <p className="text-muted-foreground text-lg">تحكم كامل ومراقبة لحظية لحضور الكوادر</p>
         </div>
         
-        <div className="flex items-center gap-3 bg-card/50 backdrop-blur-md p-2.5 rounded-2xl border border-white/10 shadow-xl">
-          <Select value={month.toString()} onValueChange={(val) => setCurrentDate(new Date(year, parseInt(val) - 1, 1))}>
-            <SelectTrigger className="w-[160px] border-none bg-white/5 hover:bg-white/10 text-white font-bold text-lg rounded-xl focus:ring-primary/50">
-              <SelectValue placeholder="الشهر" />
-            </SelectTrigger>
-            <SelectContent className="bg-card border-white/10 text-white rounded-xl">
-              {months.map(m => (
-                <SelectItem key={m.value} value={m.value} className="focus:bg-primary/20 focus:text-primary rounded-lg font-bold">{m.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <Select value={year.toString()} onValueChange={(val) => setCurrentDate(new Date(parseInt(val), month - 1, 1))}>
-            <SelectTrigger className="w-[120px] border-none bg-white/5 hover:bg-white/10 text-white font-bold text-lg rounded-xl focus:ring-primary/50">
-              <SelectValue placeholder="السنة" />
-            </SelectTrigger>
-            <SelectContent className="bg-card border-white/10 text-white rounded-xl">
-              {[year - 1, year, year + 1].map(y => (
-                <SelectItem key={y} value={y.toString()} className="focus:bg-primary/20 focus:text-primary rounded-lg font-bold">{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-sm text-background transition-all hover:scale-105 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(251,191,36,0.3)]"
+            style={{ background: "linear-gradient(135deg, #FBBF24, #D97706)" }}
+          >
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            {exporting ? "جاري التصدير..." : "تصدير Excel"}
+          </button>
+
+          <div className="flex items-center gap-3 bg-card/50 backdrop-blur-md p-2.5 rounded-2xl border border-white/10 shadow-xl">
+            <Select value={month.toString()} onValueChange={(val) => setCurrentDate(new Date(year, parseInt(val) - 1, 1))}>
+              <SelectTrigger className="w-[160px] border-none bg-white/5 hover:bg-white/10 text-white font-bold text-lg rounded-xl focus:ring-primary/50">
+                <SelectValue placeholder="الشهر" />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-white/10 text-white rounded-xl">
+                {months.map(m => (
+                  <SelectItem key={m.value} value={m.value} className="focus:bg-primary/20 focus:text-primary rounded-lg font-bold">{m.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={year.toString()} onValueChange={(val) => setCurrentDate(new Date(parseInt(val), month - 1, 1))}>
+              <SelectTrigger className="w-[120px] border-none bg-white/5 hover:bg-white/10 text-white font-bold text-lg rounded-xl focus:ring-primary/50">
+                <SelectValue placeholder="السنة" />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-white/10 text-white rounded-xl">
+                {[year - 1, year, year + 1].map(y => (
+                  <SelectItem key={y} value={y.toString()} className="focus:bg-primary/20 focus:text-primary rounded-lg font-bold">{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
