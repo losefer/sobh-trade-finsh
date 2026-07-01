@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, getDaysInMonth } from "date-fns";
 import { ar } from "date-fns/locale";
-import { Loader2, TrendingUp, Users, CheckCircle, XCircle, Download } from "lucide-react";
+import { Loader2, TrendingUp, Users, CheckCircle, XCircle, Download, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -29,6 +29,8 @@ export default function Dashboard() {
   mutateFnRef.current = upsertAttendance.mutate;
   const { toast } = useToast();
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = async () => {
     setExporting(true);
@@ -50,6 +52,29 @@ export default function Dashboard() {
       toast({ title: "حدث خطأ أثناء التصدير", variant: "destructive" });
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleImport = async (file: File) => {
+    setImporting(true);
+    try {
+      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${base}/api/import/monthly?year=${year}&month=${month}`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json() as { message?: string; upserted?: number; skipped?: string[]; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "فشل الاستيراد");
+      await queryClient.invalidateQueries({ queryKey: getListAttendanceQueryKey({ year, month }) });
+      const skippedMsg = data.skipped && data.skipped.length > 0 ? ` (موظفون غير معروفون: ${data.skipped.join("، ")})` : "";
+      toast({ title: `${data.message}${skippedMsg}`, className: "bg-green-600 text-white border-none font-bold" });
+    } catch (err) {
+      toast({ title: err instanceof Error ? err.message : "حدث خطأ أثناء الاستيراد", variant: "destructive" });
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -143,6 +168,22 @@ export default function Dashboard() {
         </div>
         
         <div className="flex items-center gap-3 flex-wrap">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImport(f); }}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+            className="flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-sm text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed border border-white/20"
+            style={{ background: "rgba(255,255,255,0.08)" }}
+          >
+            {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            {importing ? "جاري الاستيراد..." : "استيراد Excel"}
+          </button>
           <button
             onClick={handleExport}
             disabled={exporting}

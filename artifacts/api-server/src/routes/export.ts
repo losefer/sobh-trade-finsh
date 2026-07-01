@@ -1,8 +1,11 @@
 import { Router, type IRouter } from "express";
 import ExcelJS from "exceljs";
+import multer from "multer";
 import { and, eq } from "drizzle-orm";
 import { db, employeesTable, attendanceTable } from "@workspace/db";
+
 const router: IRouter = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const ARABIC_MONTHS = [
   "يناير","فبراير","مارس","أبريل","مايو","يونيو",
@@ -261,6 +264,110 @@ router.get("/export/monthly", async (req, res): Promise<void> => {
 
   await wb.xlsx.write(res);
   res.end();
+});
+
+// ─── Import route ───────────────────────────────────────────────────────────
+router.post("/import/monthly", upload.single("file"), async (req, res): Promise<void> => {
+  if (!req.file) {
+    res.status(400).json({ error: "لم يتم إرفاق ملف" });
+    return;
+  }
+
+  const year = parseInt(req.query.year as string);
+  const month = parseInt(req.query.month as string);
+  if (!year || !month || month < 1 || month > 12) {
+    res.status(400).json({ error: "year and month are required" });
+    return;
+  }
+
+  const STATUS_MAP: Record<string, string> = {
+    "ح": "present",
+    "غ": "absent",
+    "إج": "vacation",
+    "ج": "vacation",
+  };
+
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(req.file.buffer);
+  const ws = wb.worksheets[0];
+  if (!ws) {
+    res.status(400).json({ error: "الملف لا يحتوي على بيانات" });
+    return;
+  }
+
+  // Row 4 = headers: col 1 = name, col 2..N = day numbers
+  const headerRow = ws.getRow(4);
+  const colToDay = new Map<number, number>();
+  headerRow.eachCell((cell, colNumber) => {
+    if (colNumber === 1) return;
+    const val = String(cell.value ?? "").trim();
+    const dayNum = parseInt(val);
+    if (!isNaN(dayNum) && dayNum >= 1 && dayNum <= 31) {
+      colToDay.set(colNumber, dayNum);
+    }
+  });
+
+  if (colToDay.size === 0) {
+    res.status(400).json({ error: "تنسيق الملف غير صحيح — لم يتم العثور على أعمدة الأيام" });
+    return;
+  }
+
+  // Load all employees for name matching
+  const employees = await db.select().from(employeesTable);
+  const nameToEmp = new Map(employees.map(e => [e.name.trim(), e]));
+
+  const upserted: number[] = [];
+  const skipped: string[] = [];
+
+  // Rows 5+ = employee data rows
+  const totalRows = ws.rowCount;
+  for (let r = 5; r <= totalRows; r++) {
+    const row = ws.getRow(r);
+    const nameCell = row.getCell(1);
+    const name = String(nameCell.value ?? "").trim();
+    if (!name || name === "الإجمالي") continue;
+
+    const emp = nameToEmp.get(name);
+    if (!emp) {
+      skipped.push(name);
+      continue;
+    }
+
+    for (const [colNumber, day] of colToDay) {
+      const cell = row.getCell(colNumber);
+      const raw = String(cell.value ?? "").trim();
+      const status = STATUS_MAP[raw];
+
+      if (status) {
+        await db
+          .insert(attendanceTable)
+          .values({ employeeId: emp.id, year, month, day, status })
+          .onConflictDoUpdate({
+            target: [attendanceTable.employeeId, attendanceTable.year, attendanceTable.month, attendanceTable.day],
+            set: { status },
+          });
+        upserted.push(1);
+      } else if (raw === "" || raw === "0") {
+        // Empty cell means clear the record if it exists
+        await db
+          .delete(attendanceTable)
+          .where(
+            and(
+              eq(attendanceTable.employeeId, emp.id),
+              eq(attendanceTable.year, year),
+              eq(attendanceTable.month, month),
+              eq(attendanceTable.day, day),
+            )
+          );
+      }
+    }
+  }
+
+  res.json({
+    message: `تم استيراد ${upserted.length} سجل بنجاح`,
+    upserted: upserted.length,
+    skipped,
+  });
 });
 
 export default router;
