@@ -1,11 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { Layout } from "@/components/layout";
 import { useListEmployees, useListAttendance, useUpsertAttendance, getListAttendanceQueryKey, useGetMonthlyStats } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format, getDaysInMonth, startOfMonth } from "date-fns";
+import { format, getDaysInMonth } from "date-fns";
 import { ar } from "date-fns/locale";
-import { Loader2 } from "lucide-react";
+import { Loader2, TrendingUp, Users, CheckCircle, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STATUS_FLOW = [null, "present", "absent", "vacation"] as const;
@@ -13,7 +13,7 @@ const STATUS_FLOW = [null, "present", "absent", "vacation"] as const;
 export default function Dashboard() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const year = currentDate.getFullYear();
-  const month = currentDate.getMonth() + 1; // 1-12
+  const month = currentDate.getMonth() + 1;
   const queryClient = useQueryClient();
 
   const { data: employees = [], isLoading: loadingEmployees } = useListEmployees();
@@ -23,13 +23,13 @@ export default function Dashboard() {
   );
   
   const { data: stats } = useGetMonthlyStats({ year, month });
-
   const upsertAttendance = useUpsertAttendance();
+  const mutateFnRef = useRef(upsertAttendance.mutate);
+  mutateFnRef.current = upsertAttendance.mutate;
 
   const daysInMonth = getDaysInMonth(currentDate);
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-  // Map attendances for quick lookup
   const attendanceMap = useMemo(() => {
     const map = new Map<string, string>();
     attendances.forEach(a => {
@@ -38,20 +38,17 @@ export default function Dashboard() {
     return map;
   }, [attendances]);
 
-  const handleCellClick = (employeeId: number, day: number) => {
+  const handleCellClick = useCallback((employeeId: number, day: number) => {
     const key = `${employeeId}-${day}`;
     const currentStatus = attendanceMap.get(key) || null;
     
-    // Cycle through statuses
     let currentIndex = STATUS_FLOW.indexOf(currentStatus as any);
     if (currentIndex === -1) currentIndex = 0;
     
     const nextIndex = (currentIndex + 1) % STATUS_FLOW.length;
     const nextStatus = STATUS_FLOW[nextIndex];
 
-    // Optimistic update
     const previousAttendances = queryClient.getQueryData<any[]>(getListAttendanceQueryKey({ year, month })) || [];
-    
     let newAttendances = [...previousAttendances];
     const existingIndex = newAttendances.findIndex(a => a.employeeId === employeeId && a.day === day);
     
@@ -68,38 +65,22 @@ export default function Dashboard() {
     queryClient.setQueryData(getListAttendanceQueryKey({ year, month }), newAttendances);
 
     if (nextStatus) {
-      upsertAttendance.mutate({
-        data: {
-          employeeId,
-          year,
-          month,
-          day,
-          status: nextStatus as any
-        }
+      mutateFnRef.current({
+        data: { employeeId, year, month, day, status: nextStatus as any }
       }, {
         onError: () => {
-          // Revert on error
           queryClient.setQueryData(getListAttendanceQueryKey({ year, month }), previousAttendances);
         }
       });
-    } else {
-      // In a real app we'd have a delete endpoint, but based on API it seems upsert handles it 
-      // or we just skip saving if null. For now we will just assume it's handled or we need a specific 'empty' status.
-      // Wait, the API spec says status is 'present' | 'absent' | 'holiday' | 'vacation'.
-      // There's no "null" or "empty" to send back. If we need to clear it, there might not be an API.
-      // Let's assume sending a mutation isn't needed if we are just visually cycling, 
-      // or we only cycle through actual statuses if there's no delete. 
-      // I'll adjust the flow to: 'present' -> 'absent' -> 'vacation' -> 'present'
     }
-  };
+  }, [attendanceMap, month, queryClient, year]);
 
-  const getStatusColor = (status?: string) => {
+  const getStatusClass = (status?: string) => {
     switch(status) {
-      case "present": return "bg-green-100 text-green-800 border-green-200 hover:bg-green-200";
-      case "absent": return "bg-red-100 text-red-800 border-red-200 hover:bg-red-200";
-      case "vacation": return "bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200";
-      case "holiday": return "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200";
-      default: return "bg-gray-50 border-gray-100 hover:bg-gray-100 text-transparent";
+      case "present": return "grid-cell-present";
+      case "absent": return "grid-cell-absent";
+      case "vacation": return "grid-cell-vacation";
+      default: return "grid-cell-empty";
     }
   };
 
@@ -108,8 +89,7 @@ export default function Dashboard() {
       case "present": return "ح";
       case "absent": return "غ";
       case "vacation": return "ج";
-      case "holiday": return "ع";
-      default: return "-";
+      default: return "";
     }
   };
 
@@ -122,7 +102,7 @@ export default function Dashboard() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <Loader2 className="w-12 h-12 animate-spin text-primary" />
         </div>
       </Layout>
     );
@@ -130,37 +110,31 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">سجل الحضور</h1>
-          <p className="text-muted-foreground mt-1">إدارة حضور الموظفين اليومي</p>
+          <h1 className="text-4xl font-black text-white mb-2 tracking-tight">سجل العمليات</h1>
+          <p className="text-muted-foreground text-lg">تحكم كامل ومراقبة لحظية لحضور الكوادر</p>
         </div>
         
-        <div className="flex items-center gap-4 bg-white p-2 rounded-lg shadow-sm border">
-          <Select 
-            value={month.toString()} 
-            onValueChange={(val) => setCurrentDate(new Date(year, parseInt(val) - 1, 1))}
-          >
-            <SelectTrigger className="w-[140px] border-none bg-transparent font-medium text-base">
-              <SelectValue placeholder="اختر الشهر" />
+        <div className="flex items-center gap-3 bg-card/50 backdrop-blur-md p-2.5 rounded-2xl border border-white/10 shadow-xl">
+          <Select value={month.toString()} onValueChange={(val) => setCurrentDate(new Date(year, parseInt(val) - 1, 1))}>
+            <SelectTrigger className="w-[160px] border-none bg-white/5 hover:bg-white/10 text-white font-bold text-lg rounded-xl focus:ring-primary/50">
+              <SelectValue placeholder="الشهر" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-card border-white/10 text-white rounded-xl">
               {months.map(m => (
-                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                <SelectItem key={m.value} value={m.value} className="focus:bg-primary/20 focus:text-primary rounded-lg font-bold">{m.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
           
-          <Select 
-            value={year.toString()} 
-            onValueChange={(val) => setCurrentDate(new Date(parseInt(val), month - 1, 1))}
-          >
-            <SelectTrigger className="w-[100px] border-none bg-transparent font-medium text-base">
-              <SelectValue placeholder="اختر السنة" />
+          <Select value={year.toString()} onValueChange={(val) => setCurrentDate(new Date(parseInt(val), month - 1, 1))}>
+            <SelectTrigger className="w-[120px] border-none bg-white/5 hover:bg-white/10 text-white font-bold text-lg rounded-xl focus:ring-primary/50">
+              <SelectValue placeholder="السنة" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-card border-white/10 text-white rounded-xl">
               {[year - 1, year, year + 1].map(y => (
-                <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                <SelectItem key={y} value={y.toString()} className="focus:bg-primary/20 focus:text-primary rounded-lg font-bold">{y}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -168,46 +142,58 @@ export default function Dashboard() {
       </div>
 
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-card border rounded-xl p-4 shadow-sm">
-            <p className="text-sm text-muted-foreground font-medium mb-1">إجمالي الحضور</p>
-            <p className="text-2xl font-bold text-green-600">{stats.totalPresent}</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
+          <div className="glass-panel rounded-3xl p-6 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:opacity-30 group-hover:scale-110 transition-all duration-500">
+              <CheckCircle className="w-16 h-16 text-green-400" />
+            </div>
+            <p className="text-sm font-bold text-white/60 mb-2 uppercase tracking-wider relative z-10">الحاضرون</p>
+            <p className="text-4xl font-black text-green-400 relative z-10">{stats.totalPresent}</p>
           </div>
-          <div className="bg-card border rounded-xl p-4 shadow-sm">
-            <p className="text-sm text-muted-foreground font-medium mb-1">إجمالي الغياب</p>
-            <p className="text-2xl font-bold text-red-600">{stats.totalAbsent}</p>
+          <div className="glass-panel rounded-3xl p-6 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:opacity-30 group-hover:scale-110 transition-all duration-500">
+              <XCircle className="w-16 h-16 text-red-400" />
+            </div>
+            <p className="text-sm font-bold text-white/60 mb-2 uppercase tracking-wider relative z-10">الغائبون</p>
+            <p className="text-4xl font-black text-red-400 relative z-10">{stats.totalAbsent}</p>
           </div>
-          <div className="bg-card border rounded-xl p-4 shadow-sm">
-            <p className="text-sm text-muted-foreground font-medium mb-1">إجازات</p>
-            <p className="text-2xl font-bold text-yellow-600">{stats.totalVacation}</p>
+          <div className="glass-panel rounded-3xl p-6 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:opacity-30 group-hover:scale-110 transition-all duration-500">
+              <TrendingUp className="w-16 h-16 text-primary" />
+            </div>
+            <p className="text-sm font-bold text-white/60 mb-2 uppercase tracking-wider relative z-10">الإجازات</p>
+            <p className="text-4xl font-black text-primary relative z-10">{stats.totalVacation}</p>
           </div>
-          <div className="bg-card border rounded-xl p-4 shadow-sm">
-            <p className="text-sm text-muted-foreground font-medium mb-1">عدد الموظفين</p>
-            <p className="text-2xl font-bold text-primary">{stats.totalEmployees}</p>
+          <div className="glass-panel rounded-3xl p-6 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:opacity-30 group-hover:scale-110 transition-all duration-500">
+              <Users className="w-16 h-16 text-white" />
+            </div>
+            <p className="text-sm font-bold text-white/60 mb-2 uppercase tracking-wider relative z-10">إجمالي الكوادر</p>
+            <p className="text-4xl font-black text-white relative z-10">{stats.totalEmployees}</p>
           </div>
         </div>
       )}
 
-      <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-right">
+      <div className="glass-panel rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden bg-card/60">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-sm text-right border-collapse">
             <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="p-4 font-semibold text-foreground sticky right-0 bg-muted/95 backdrop-blur-sm z-10 w-[200px] shadow-[1px_0_0_0_hsl(var(--border))]">الموظف</th>
+              <tr className="bg-white/5 border-b border-white/10">
+                <th className="p-5 font-black text-white text-base sticky right-0 bg-card/95 backdrop-blur-xl z-20 w-[240px] shadow-[1px_0_0_0_rgba(255,255,255,0.1)]">اسم الكادر</th>
                 {daysArray.map(day => (
-                  <th key={day} className="p-2 min-w-[40px] text-center font-medium text-muted-foreground border-r border-border/50">
+                  <th key={day} className="p-3 min-w-[48px] text-center font-bold text-white/60 border-r border-white/5">
                     {day}
                   </th>
                 ))}
-                <th className="p-4 font-semibold text-center border-r">المجموع</th>
+                <th className="p-5 font-black text-primary text-center border-r border-white/10 bg-white/5">المجموع</th>
               </tr>
             </thead>
             <tbody>
-              {employees.map(employee => {
+              {employees.map((employee) => {
                 let totalPresent = 0;
                 return (
-                  <tr key={employee.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-                    <td className="p-4 font-medium sticky right-0 bg-card/95 backdrop-blur-sm z-10 shadow-[1px_0_0_0_hsl(var(--border))]">
+                  <tr key={employee.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                    <td className="p-5 font-bold text-white sticky right-0 bg-card/95 backdrop-blur-xl z-10 shadow-[1px_0_0_0_rgba(255,255,255,0.1)]">
                       {employee.name}
                     </td>
                     {daysArray.map(day => {
@@ -215,12 +201,12 @@ export default function Dashboard() {
                       if (status === "present") totalPresent++;
                       
                       return (
-                        <td key={day} className="p-1 border-r border-border/50">
+                        <td key={day} className="p-1.5 border-r border-white/5">
                           <button
                             onClick={() => handleCellClick(employee.id, day)}
                             className={cn(
-                              "w-full h-8 flex items-center justify-center rounded text-xs font-bold transition-all border",
-                              getStatusColor(status)
+                              "w-full h-10 flex items-center justify-center rounded-lg text-sm font-black cell-transition cursor-pointer border",
+                              getStatusClass(status)
                             )}
                           >
                             {getStatusLabel(status)}
@@ -228,7 +214,7 @@ export default function Dashboard() {
                         </td>
                       );
                     })}
-                    <td className="p-4 text-center font-bold text-primary border-r">
+                    <td className="p-5 text-center font-black text-primary text-lg border-r border-white/10 bg-white/5">
                       {totalPresent}
                     </td>
                   </tr>
@@ -236,8 +222,11 @@ export default function Dashboard() {
               })}
               {employees.length === 0 && (
                 <tr>
-                  <td colSpan={daysInMonth + 2} className="p-8 text-center text-muted-foreground">
-                    لا يوجد موظفين مسجلين. أضف موظفين من صفحة الموظفين.
+                  <td colSpan={daysInMonth + 2} className="p-16 text-center">
+                    <div className="flex flex-col items-center justify-center gap-4">
+                      <Users className="w-16 h-16 text-white/20" />
+                      <p className="text-xl font-bold text-white/60">مركز العمليات فارغ. قم بإضافة كوادر أولاً.</p>
+                    </div>
                   </td>
                 </tr>
               )}
