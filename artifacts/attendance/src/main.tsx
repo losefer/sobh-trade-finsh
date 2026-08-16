@@ -3,7 +3,7 @@ import { setBaseUrl } from "@workspace/api-client-react";
 import App from "./App";
 import "./index.css";
 
-setBaseUrl(import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000");
+setBaseUrl(import.meta.env.VITE_API_BASE_URL ?? "");
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
 	window.addEventListener("load", () => {
