@@ -1,9 +1,9 @@
-# Build stage
-FROM node:22-alpine AS builder
+# Build stage - use debian-based node (not alpine/musl) to match lockfile native deps
+FROM node:22-slim AS builder
 
 WORKDIR /app
 
-# Install pnpm via npm (PATH is set correctly in Alpine)
+# Install pnpm
 RUN npm install -g pnpm@10.13.1
 
 # Copy workspace config files
@@ -22,8 +22,8 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 RUN pnpm --filter @workspace/attendance run build
 RUN pnpm --filter @workspace/api-server run build
 
-# Production stage (lean image)
-FROM node:22-alpine AS runner
+# Production stage
+FROM node:22-slim AS runner
 
 WORKDIR /app
 
