@@ -31,6 +31,13 @@ let dbInstance;
 
 if (process.env.DATABASE_URL) {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  // Run schema creation (CREATE TABLE IF NOT EXISTS) on startup
+  const client = await pool.connect();
+  try {
+    await client.query(schemaSql);
+  } finally {
+    client.release();
+  }
   dbInstance = drizzleNodePostgres(pool, { schema });
 } else {
   const client = new PGlite({ fs: new MemoryFS() });
