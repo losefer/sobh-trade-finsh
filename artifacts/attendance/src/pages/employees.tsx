@@ -9,6 +9,57 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Loader2, Plus, Pencil, Trash2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+type EmployeeFormProps = {
+  onSubmit: (e: React.FormEvent) => void;
+  isPending: boolean;
+  buttonText: string;
+  formData: { name: string; phone: string; dailyWage: string };
+  setFormData: React.Dispatch<React.SetStateAction<{ name: string; phone: string; dailyWage: string }>>;
+};
+
+function EmployeeForm({ onSubmit, isPending, buttonText, formData, setFormData }: EmployeeFormProps) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-6 pt-4">
+      <div className="space-y-3">
+        <Label htmlFor="name" className="text-white/80 font-bold">الاسم الكامل</Label>
+        <Input
+          id="name"
+          required
+          value={formData.name}
+          onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+          className="bg-white/5 border-white/10 text-white h-12 text-lg focus-visible:ring-primary"
+        />
+      </div>
+      <div className="space-y-3">
+        <Label htmlFor="phone" className="text-white/80 font-bold">رقم التواصل</Label>
+        <Input
+          id="phone"
+          dir="ltr"
+          value={formData.phone}
+          onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+          className="bg-white/5 border-white/10 text-white h-12 text-lg focus-visible:ring-primary text-right"
+        />
+      </div>
+      <div className="space-y-3">
+        <Label htmlFor="dailyWage" className="text-white/80 font-bold">اليومية (شيكل)</Label>
+        <Input
+          id="dailyWage"
+          type="number"
+          min="0"
+          step="0.1"
+          required
+          value={formData.dailyWage}
+          onChange={e => setFormData(prev => ({ ...prev, dailyWage: e.target.value }))}
+          className="bg-white/5 border-white/10 text-primary font-black h-12 text-xl focus-visible:ring-primary"
+        />
+      </div>
+      <Button type="submit" className="w-full h-14 text-lg font-black bg-primary hover:bg-primary/90 text-background rounded-xl mt-4" disabled={isPending}>
+        {isPending ? <Loader2 className="w-6 h-6 animate-spin" /> : buttonText}
+      </Button>
+    </form>
+  );
+}
+
 export default function Employees() {
   const { data: employees = [], isLoading } = useListEmployees();
   const createEmployee = useCreateEmployee();
@@ -74,38 +125,6 @@ export default function Employees() {
     setEditingId(emp.id);
   };
 
-  const EmployeeForm = ({ onSubmit, isPending, buttonText }: { onSubmit: (e: React.FormEvent) => void; isPending: boolean; buttonText: string }) => (
-    <form onSubmit={onSubmit} className="space-y-6 pt-4">
-      <div className="space-y-3">
-        <Label htmlFor="name" className="text-white/80 font-bold">الاسم الكامل</Label>
-        <Input 
-          id="name" required value={formData.name} 
-          onChange={e => setFormData({...formData, name: e.target.value})} 
-          className="bg-white/5 border-white/10 text-white h-12 text-lg focus-visible:ring-primary" 
-        />
-      </div>
-      <div className="space-y-3">
-        <Label htmlFor="phone" className="text-white/80 font-bold">رقم التواصل</Label>
-        <Input 
-          id="phone" dir="ltr" value={formData.phone} 
-          onChange={e => setFormData({...formData, phone: e.target.value})} 
-          className="bg-white/5 border-white/10 text-white h-12 text-lg focus-visible:ring-primary text-right" 
-        />
-      </div>
-      <div className="space-y-3">
-        <Label htmlFor="dailyWage" className="text-white/80 font-bold">اليومية (شيكل)</Label>
-        <Input 
-          id="dailyWage" type="number" min="0" step="0.1" required value={formData.dailyWage} 
-          onChange={e => setFormData({...formData, dailyWage: e.target.value})} 
-          className="bg-white/5 border-white/10 text-primary font-black h-12 text-xl focus-visible:ring-primary" 
-        />
-      </div>
-      <Button type="submit" className="w-full h-14 text-lg font-black bg-primary hover:bg-primary/90 text-background rounded-xl mt-4" disabled={isPending}>
-        {isPending ? <Loader2 className="w-6 h-6 animate-spin" /> : buttonText}
-      </Button>
-    </form>
-  );
-
   return (
     <Layout>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
@@ -125,7 +144,13 @@ export default function Employees() {
             <DialogHeader>
               <DialogTitle className="text-2xl font-black text-center text-primary">استمارة توظيف</DialogTitle>
             </DialogHeader>
-            <EmployeeForm onSubmit={handleCreate} isPending={createEmployee.isPending} buttonText="اعتماد وتوظيف" />
+            <EmployeeForm
+              onSubmit={handleCreate}
+              isPending={createEmployee.isPending}
+              buttonText="اعتماد وتوظيف"
+              formData={formData}
+              setFormData={setFormData}
+            />
           </DialogContent>
         </Dialog>
       </div>
@@ -135,7 +160,13 @@ export default function Employees() {
           <DialogHeader>
             <DialogTitle className="text-2xl font-black text-center text-primary">تحديث السجل</DialogTitle>
           </DialogHeader>
-          <EmployeeForm onSubmit={handleUpdate} isPending={updateEmployee.isPending} buttonText="حفظ التعديلات" />
+          <EmployeeForm
+            onSubmit={handleUpdate}
+            isPending={updateEmployee.isPending}
+            buttonText="حفظ التعديلات"
+            formData={formData}
+            setFormData={setFormData}
+          />
         </DialogContent>
       </Dialog>
 
