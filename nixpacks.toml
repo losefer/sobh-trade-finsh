@@ -3,8 +3,7 @@ nixPkgs = ["nodejs_22"]
 
 [phases.install]
 cmds = [
-  "npm install -g pnpm@10",
-  "pnpm install --frozen-lockfile --ignore-scripts"
+  "npm install -g pnpm@10 && pnpm install --frozen-lockfile --ignore-scripts"
 ]
 
 [phases.build]
