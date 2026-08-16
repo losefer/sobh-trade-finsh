@@ -1,4 +1,4 @@
-const CACHE_NAME = "sobh-attendance-v1";
+const CACHE_NAME = "sobh-attendance-v2";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -30,6 +30,11 @@ self.addEventListener("fetch", (event) => {
   }
 
   const requestUrl = new URL(event.request.url);
+
+  // Never cache API calls — always fetch from network
+  if (requestUrl.pathname.startsWith("/api/")) {
+    return;
+  }
 
   if (event.request.mode === "navigate") {
     event.respondWith(
