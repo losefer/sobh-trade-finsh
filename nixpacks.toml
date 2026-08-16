@@ -3,13 +3,14 @@ nixPkgs = ["nodejs_22"]
 
 [phases.install]
 cmds = [
-  "corepack enable && corepack prepare pnpm@10 --activate && pnpm install --frozen-lockfile --ignore-scripts"
+  "npm install -g pnpm@10",
+  "export PATH=\"$(npm root -g)/.bin:$PATH\" && pnpm install --frozen-lockfile --ignore-scripts"
 ]
 
 [phases.build]
 cmds = [
-  "pnpm --filter @workspace/attendance run build",
-  "pnpm --filter @workspace/api-server run build"
+  "export PATH=\"$(npm root -g)/.bin:$PATH\" && pnpm --filter @workspace/attendance run build",
+  "export PATH=\"$(npm root -g)/.bin:$PATH\" && pnpm --filter @workspace/api-server run build"
 ]
 
 [start]
