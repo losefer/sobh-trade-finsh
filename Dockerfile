@@ -3,8 +3,8 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Install pnpm via standalone binary (no corepack, no npm global PATH issues)
-RUN wget -qO /bin/pnpm "https://github.com/pnpm/pnpm/releases/latest/download/pnpm-linuxstatic-x64" && chmod +x /bin/pnpm
+# Install pnpm via npm (PATH is set correctly in Alpine)
+RUN npm install -g pnpm@10.13.1
 
 # Copy workspace config files
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
